@@ -4,9 +4,8 @@ package main
 
 import (
 	"encoding/json"
-	"io"
+	"html/template"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"github.com/boltdb/bolt"
@@ -21,6 +20,16 @@ const (
 type topicData struct {
 	MediaTitles []string
 	MediaHashes []string
+}
+
+type SubmittedMedia struct {
+	MediaTitle string
+	MediaHash  string
+}
+
+type topicTemplateResults struct {
+	TopicTitle     string
+	SubmittedMedia []SubmittedMedia
 }
 
 // topicHandler handles requests for topic pages.
@@ -46,11 +55,22 @@ func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Write a link for each page.
-	io.WriteString(w, "<html><head></head><body><center><h1>"+topicName+"</h1></center>"+"\n")
-	for i := range td.MediaTitles {
-		mediaLocation := filepath.Join(mediaDir, td.MediaHashes[i])
-		io.WriteString(w, "<a href='../"+mediaLocation+"'>"+td.MediaTitles[i]+"</a><br>\n")
+	// Fill out the stuct that will inform the topic template.
+	ttr := topicTemplateResults{
+		TopicTitle: topicName,
 	}
-	io.WriteString(w, "</body><html>")
+	for i := range td.MediaTitles {
+		ttr.SubmittedMedia = append(ttr.SubmittedMedia, SubmittedMedia{
+			MediaTitle: td.MediaTitles[i],
+			MediaHash:  mediaPrefix + td.MediaHashes[i],
+		})
+	}
+
+	// Execute a template to display all of the uploaded media.
+	t, err := template.ParseFiles("topic.tpl")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	t.Execute(w, ttr)
 }

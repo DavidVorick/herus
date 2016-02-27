@@ -13,7 +13,7 @@ import (
 
 const (
 	mediaDir = "media"
-	dbFile = "herus.db"
+	dbFile   = "herus.db"
 )
 
 var (
