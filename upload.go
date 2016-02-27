@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"github.com/boltdb/bolt"
 )
@@ -24,7 +25,11 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 	// server will use to parse the file. If the memory goes over, a temp file
 	// will be used. But, there should be some way to set a limit on the max
 	// size allowed, and I don't think that's happening here.
-	r.ParseMultipartForm(8 << 20) // 8 MB
+	err := r.ParseMultipartForm(8 << 20) // 8 MB
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	file, _, err := r.FormFile("upload")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -58,18 +63,24 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 	// Get the topic that this upload is being connected to and update the
 	// topic's database file to point to the upload.
 	topicName := r.FormValue("topic")
+	topicName = strings.Replace(topicName, " ", "_", -1)
+	topicName = strings.ToLower(topicName)
 	mediaTitle := r.FormValue("title")
 	err = h.db.Update(func(tx *bolt.Tx) error {
 		// Fetch the existing topic data.
 		var td topicData
-		tb := tx.Bucket(bucketTopics)
-		topicDataBytes := tb.Get([]byte(topicName))
+		bt := tx.Bucket(bucketTopics)
+		topicDataBytes := bt.Get([]byte(topicName))
 		if topicDataBytes != nil {
 			err = json.Unmarshal(topicDataBytes, &td)
 			if err != nil {
 				return err
 			}
 		}
+
+		// TODO: Need to make sure that the thing doesn't already exist, or
+		// they'll be able to wipe over eachother. Also, the key should be the
+		// hash, not the name.
 
 		// Add the new link to the topic data.
 		td.AssociatedMedia = append(td.AssociatedMedia, mediaMetadata{
@@ -89,10 +100,14 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		return tb.Put([]byte(topicName), topicDataBytes)
+		return bt.Put([]byte(topicName), topicDataBytes)
 	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	t, err := template.ParseFiles("templates/uploadSuccess.tpl")
+	t, err := template.ParseFiles("templates/uploadPost.tpl")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

@@ -17,6 +17,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 // the server.
 func (h *herus) establishServerRoutes() {
 	http.HandleFunc("/", rootHandler)
+	http.HandleFunc(connectPrefix, h.connectHandler)
 	http.HandleFunc(indexPrefix, indexHandler)
 	http.HandleFunc(mediaPrefix, mediaHandler)
 	http.HandleFunc(topicPrefix, h.topicHandler)
