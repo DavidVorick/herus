@@ -19,4 +19,5 @@ func establishServerRoutes() {
 	http.HandleFunc("/", rootHandler)
 	http.HandleFunc(indexPrefix, indexHandler)
 	http.HandleFunc(topicPrefix, topicHandler)
+	http.HandleFunc(uploadPrefix, uploadHandler)
 }
