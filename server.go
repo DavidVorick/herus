@@ -15,9 +15,10 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 
 // establishServerRoutes writes all of the routes that are understandable to
 // the server.
-func establishServerRoutes() {
+func (h *herus) establishServerRoutes() {
 	http.HandleFunc("/", rootHandler)
 	http.HandleFunc(indexPrefix, indexHandler)
-	http.HandleFunc(topicPrefix, topicHandler)
-	http.HandleFunc(uploadPrefix, uploadHandler)
+	http.HandleFunc(mediaPrefix, mediaHandler)
+	http.HandleFunc(topicPrefix, h.topicHandler)
+	http.HandleFunc(uploadPrefix, h.uploadHandler)
 }
