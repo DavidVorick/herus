@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -18,18 +19,17 @@ const (
 // topicData is a struct that gets stored in the database containing all of the
 // information about a topic.
 type topicData struct {
-	MediaTitles []string
-	MediaHashes []string
+	AssociatedMedia []mediaMetadata
+	// TODO: RelatedPages []pageRelations
 }
 
-type SubmittedMedia struct {
-	MediaTitle string
-	MediaHash  string
-}
+// topicTemplateData provides the dynamic data that is used to fill out the
+// template for the topic page.
+type topicTemplateData struct {
+	MediaPrefix string
+	TopicTitle  string
 
-type topicTemplateResults struct {
-	TopicTitle     string
-	SubmittedMedia []SubmittedMedia
+	AssociatedMedia []mediaMetadata
 }
 
 // topicHandler handles requests for topic pages.
@@ -54,23 +54,21 @@ func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	fmt.Println(td)
 
 	// Fill out the stuct that will inform the topic template.
-	ttr := topicTemplateResults{
-		TopicTitle: topicName,
-	}
-	for i := range td.MediaTitles {
-		ttr.SubmittedMedia = append(ttr.SubmittedMedia, SubmittedMedia{
-			MediaTitle: td.MediaTitles[i],
-			MediaHash:  mediaPrefix + td.MediaHashes[i],
-		})
+	ttd := topicTemplateData{
+		MediaPrefix: mediaPrefix,
+		TopicTitle:  topicName,
+
+		AssociatedMedia: td.AssociatedMedia,
 	}
 
 	// Execute a template to display all of the uploaded media.
-	t, err := template.ParseFiles("topic.tpl")
+	t, err := template.ParseFiles("templates/topic.tpl")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t.Execute(w, ttr)
+	t.Execute(w, ttd)
 }

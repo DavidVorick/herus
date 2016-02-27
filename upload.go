@@ -72,8 +72,17 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Add the new link to the topic data.
-		td.MediaTitles = append(td.MediaTitles, mediaTitle)
-		td.MediaHashes = append(td.MediaHashes, mediaHash)
+		td.AssociatedMedia = append(td.AssociatedMedia, mediaMetadata{
+			Hash: mediaHash,
+			// SubmissionDate:
+			// Submitter:
+			Title: mediaTitle,
+
+			// Downvotes:
+			// LeftVotes:
+			// RightVotes:
+			// Upvotes:
+		})
 
 		// Save the updated topic data.
 		topicDataBytes, err = json.Marshal(td)
@@ -83,7 +92,7 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 		return tb.Put([]byte(topicName), topicDataBytes)
 	})
 
-	t, err := template.ParseFiles("uploadSuccess.tpl")
+	t, err := template.ParseFiles("templates/uploadSuccess.tpl")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -94,7 +103,7 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 // serveUploadPage presents the page that users can use to upload files to the
 // server.
 func (h *herus) serveUploadPage(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFiles("upload.tpl")
+	t, err := template.ParseFiles("templates/upload.tpl")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

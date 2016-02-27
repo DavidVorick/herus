@@ -6,7 +6,7 @@
 <body>
 	<center><h1>{{.TopicTitle}}</h1></center>
 	{{range .AssociatedMedia}}
-		<a href='{{.MediaPrefix}}{{.Hash}}'>{{.MediaTitle}}</a><br>
+		<a href='{{.Hash}}'>{{.Title}}</a><br>
 	{{end}}
 </body>
 </html>
