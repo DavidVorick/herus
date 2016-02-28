@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/boltdb/bolt"
 )
@@ -16,7 +17,7 @@ const (
 
 var (
 	errDuplicateRelation = errors.New("relation already exists!")
-	errMissingTopic = errors.New("either the source or destination topic does not exist - cannot add connection")
+	errMissingTopic      = errors.New("either the source or destination topic does not exist - cannot add connection")
 )
 
 // receiveConnect handles a connection post request.
@@ -53,14 +54,21 @@ func (h *herus) receiveConnect(w http.ResponseWriter, r *http.Request) {
 
 		// Check if the relation being created already exists.
 		for _, relation := range td.RelatedTopics {
-			if relation.TopicTitle == destinationTopic {
+			if relation.Title == destinationTopic {
 				return errDuplicateRelation
 			}
 		}
 
 		// Add the relation.
 		td.RelatedTopics = append(td.RelatedTopics, topicRelation{
-			TopicTitle: destinationTopic,
+			Title:          destinationTopic,
+			SubmissionDate: time.Now(),
+			// Submitter:
+
+			Downvotes:  0,
+			LeftVotes:  0,
+			RightVotes: 0,
+			Upvotes:    3,
 		})
 		sourceTopicDataBytes, err = json.Marshal(td)
 		if err != nil {
@@ -73,12 +81,12 @@ func (h *herus) receiveConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, err := template.ParseFiles("templates/connectPost.tpl")
+	t, err := template.ParseFiles("templates/connect.tpl")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t.Execute(w, nil)
+	t.Execute(w, true)
 }
 
 // serveConnectTopic presents the page that users can use to upload files to the
@@ -89,7 +97,7 @@ func (h *herus) serveConnectTopic(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t.Execute(w, nil)
+	t.Execute(w, false)
 }
 
 // connectHandler handles requests to connect pages.

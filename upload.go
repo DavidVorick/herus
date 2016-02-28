@@ -6,11 +6,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/boltdb/bolt"
 )
@@ -30,14 +32,34 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	// Get the values of the elaboration and the topic that the media might be
+	// getting added to.
+	mediaTitle := r.FormValue("title")
+	parentMedia := r.FormValue("parentMedia")
+	parentTopic := r.FormValue("parentTopic")
+	parentTopic = strings.Replace(parentTopic, " ", "_", -1)
+	parentTopic = strings.ToLower(parentTopic)
+	if mediaTitle == "" {
+		http.Error(w, "media must be uploaded with a title", http.StatusBadRequest)
+		return
+	}
+	if parentMedia == "" && parentTopic == "" {
+		http.Error(w, "media must be uploaded with a parent", http.StatusBadRequest)
+		return
+	}
+	if !(parentMedia == "" || parentTopic == "") {
+		http.Error(w, "only one parent per upload is currently allowed", http.StatusBadRequest)
+		return
+	}
+
+	// Pull the file data from the form.
 	file, _, err := r.FormFile("upload")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
-
-	// Pull the filedata from the handler.
 	fileData, err := ioutil.ReadAll(file)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -52,67 +74,126 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 	hasher.Write(fileData)
 	checksum := hasher.Sum(nil)
 
-	// Using the hash, save the file to disk.
-	mediaHash := hex.EncodeToString(checksum) + ".txt" // TODO: Accept '.txt', '.png', and '.pdf'.
-	err = ioutil.WriteFile(filepath.Join(mediaDir, mediaHash), fileData, 0700)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Get the topic that this upload is being connected to and update the
-	// topic's database file to point to the upload.
-	topicName := r.FormValue("topic")
-	topicName = strings.Replace(topicName, " ", "_", -1)
-	topicName = strings.ToLower(topicName)
-	mediaTitle := r.FormValue("title")
+	// Create/Update the database entry for this media.
+	mediaHash := hex.EncodeToString(checksum)
+	var mm mediaMetadata
+	mediaExists := false
+	oldTitle := mediaTitle
 	err = h.db.Update(func(tx *bolt.Tx) error {
-		// Fetch the existing topic data.
-		var td topicData
-		bt := tx.Bucket(bucketTopics)
-		topicDataBytes := bt.Get([]byte(topicName))
-		if topicDataBytes != nil {
-			err = json.Unmarshal(topicDataBytes, &td)
+		// See if the media has already been added to the server.
+		bm := tx.Bucket(bucketMedia)
+		mediaMetadataBytes := bm.Get([]byte(mediaHash))
+		if mediaMetadataBytes == nil {
+			// Create an entry for the media.
+			mm.Title = mediaTitle
+			mediaMetadataBytes, err := json.Marshal(mm)
 			if err != nil {
 				return err
 			}
+			err = bm.Put([]byte(mediaHash), mediaMetadataBytes)
+			if err != nil {
+				return err
+			}
+		} else {
+			// Update the in-memory title with the in-database title.
+			err := json.Unmarshal(mediaMetadataBytes, &mm)
+			if err != nil {
+				return err
+			}
+			mediaTitle = mm.Title
+			mediaExists = true
 		}
 
-		// TODO: Need to make sure that the thing doesn't already exist, or
-		// they'll be able to wipe over eachother. Also, the key should be the
-		// hash, not the name.
+		// Add the media to either the parent topic or the parent media.
+		if parentMedia != "" {
+			// Check whether the media already exists as an elaboration to the
+			// parent media.
+			var parentMM mediaMetadata
+			parentMetadataBytes := bm.Get([]byte(parentMedia))
+			if parentMetadataBytes == nil {
+				return errors.New("parent media does not exist")
+			}
+			err = json.Unmarshal(parentMetadataBytes, &parentMM)
+			if err != nil {
+				return err
+			}
+			for _, elaboration := range parentMM.Elaborations {
+				if elaboration.Hash == mediaHash {
+					return errors.New("media has already been added to the parent media")
+				}
+			}
 
-		// Add the new link to the topic data.
-		td.AssociatedMedia = append(td.AssociatedMedia, mediaMetadata{
-			Hash: mediaHash,
-			// SubmissionDate:
-			// Submitter:
-			Title: mediaTitle,
+			// Media does not exist in the parent, add it to the parent.
+			parentMM.Elaborations = append(parentMM.Elaborations, mediaElaboration{
+				Hash:           mediaHash,
+				SubmissionDate: time.Now(),
+				// Submitter:
+				Title: oldTitle,
 
-			// Downvotes:
-			// LeftVotes:
-			// RightVotes:
-			// Upvotes:
-		})
+				Downvotes: 0,
+				Upvotes:   3,
+			})
+			parentMetadataBytes, err = json.Marshal(parentMM)
+			if err != nil {
+				return err
+			}
+			return bm.Put([]byte(parentMedia), parentMetadataBytes)
+		} else {
+			// Check whether the parent topic already has the media.
+			var td topicData
+			bt := tx.Bucket(bucketTopics)
+			tdBytes := bt.Get([]byte(parentTopic))
+			if tdBytes != nil {
+				err = json.Unmarshal(tdBytes, &td)
+				if err != nil {
+					return err
+				}
+			}
+			for _, am := range td.AssociatedMedia {
+				if am.Hash == mediaHash {
+					return errors.New("media has already been added to the parent topic")
+				}
+			}
 
-		// Save the updated topic data.
-		topicDataBytes, err = json.Marshal(td)
-		if err != nil {
-			return err
+			// Media does not exist in the parent, add it to the parent.
+			td.AssociatedMedia = append(td.AssociatedMedia, mediaRelation{
+				Hash:           mediaHash,
+				SubmissionDate: time.Now(),
+				// Submitter:
+				Title: oldTitle,
+
+				Downvotes:  0,
+				LeftVotes:  0,
+				RightVotes: 0,
+				Upvotes:    3,
+			})
+			tdBytes, err = json.Marshal(td)
+			if err != nil {
+				return err
+			}
+			return bt.Put([]byte(parentTopic), tdBytes)
 		}
-		return bt.Put([]byte(topicName), topicDataBytes)
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	t, err := template.ParseFiles("templates/uploadPost.tpl")
+	// Write the media to the media folder.
+	if !mediaExists {
+		err = ioutil.WriteFile(filepath.Join(mediaDir, mediaHash), fileData, 0700)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	t, err := template.ParseFiles("templates/upload.tpl")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t.Execute(w, nil)
+	t.Execute(w, true)
 }
 
 // serveUploadPage presents the page that users can use to upload files to the
@@ -123,7 +204,7 @@ func (h *herus) serveUploadPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t.Execute(w, nil)
+	t.Execute(w, false)
 }
 
 // uploadHandler handles requests for the upload page.

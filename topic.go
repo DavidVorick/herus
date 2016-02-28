@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/boltdb/bolt"
 )
@@ -15,9 +16,25 @@ const (
 	topicPrefix = "/t/"
 )
 
+// mediaRelation contains information about media that has been submitted to
+// herus.
+type mediaRelation struct {
+	Hash           string
+	SubmissionDate time.Time
+	Submitter      string
+	Title          string
+
+	Downvotes  uint64
+	LeftVotes  uint64
+	RightVotes uint64
+	Upvotes    uint64
+}
+
 // topicRelation is a mapping from one topic to another.
 type topicRelation struct {
-	TopicTitle string
+	SubmissionDate time.Time
+	Submitter      string
+	Title          string
 
 	CenterVotes uint64
 	Downvotes   uint64
@@ -29,18 +46,18 @@ type topicRelation struct {
 // topicData is a struct that gets stored in the database containing all of the
 // information about a topic.
 type topicData struct {
-	AssociatedMedia []mediaMetadata
+	AssociatedMedia []mediaRelation
 	RelatedTopics   []topicRelation
 }
 
 // topicTemplateData provides the dynamic data that is used to fill out the
 // template for the topic page.
 type topicTemplateData struct {
-	MediaPrefix string
-	TopicPrefix string
-	TopicTitle  string
+	ElaborationPrefix string
+	TopicPrefix       string
+	TopicTitle        string
 
-	AssociatedMedia []mediaMetadata
+	AssociatedMedia []mediaRelation
 	RelatedTopics   []topicRelation
 }
 
@@ -77,8 +94,8 @@ func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Fill out the stuct that will inform the topic template.
 	ttd := topicTemplateData{
-		MediaPrefix: mediaPrefix,
-		TopicTitle:  topicTitle,
+		ElaborationPrefix: elaborationPrefix,
+		TopicTitle:        topicTitle,
 
 		AssociatedMedia: td.AssociatedMedia,
 		RelatedTopics:   td.RelatedTopics,
