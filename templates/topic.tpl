@@ -11,7 +11,7 @@
 	<br><br>
 	<center><h2>Related Pages</h2></center>
 	{{range .RelatedTopics}}
-		<a href='/t/{{.TopicTitle}}'>{{.TopicTitle}}</a><br>
+		<a href='{{$.TopicPrefix}}{{.TopicTitle}}'>{{.TopicTitle}}</a><br>
 	{{end}}
 </body>
 </html>

@@ -37,6 +37,7 @@ type topicData struct {
 // template for the topic page.
 type topicTemplateData struct {
 	MediaPrefix string
+	TopicPrefix string
 	TopicTitle  string
 
 	AssociatedMedia []mediaMetadata
