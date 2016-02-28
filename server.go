@@ -3,14 +3,24 @@ package main
 // server.go manages the server that handles requests.
 
 import (
-	"io"
+	"html/template"
 	"net/http"
+	"path/filepath"
 )
 
 // rootHandler will handle any request that comes to the page root - usually
 // indicating some type of malformed request or 404.
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "404")
+	t, err := template.ParseFiles(filepath.Join(templatesDir, "404.tpl"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = t.Execute(w, nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 }
 
 // establishServerRoutes writes all of the routes that are understandable to

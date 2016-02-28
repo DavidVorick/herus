@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -69,7 +70,7 @@ func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 	// topicTitle.
 	topicTitle := strings.TrimPrefix(r.URL.Path, topicPrefix)
 	topicTitle = strings.Replace(topicTitle, "_", " ", -1)
-	topicTitle = strings.ToTitle(topicTitle)
+	topicTitle = strings.Title(topicTitle)
 	topicName := strings.ToLower(topicTitle)
 	topicName = strings.Replace(topicName, " ", "_", -1)
 
@@ -102,10 +103,14 @@ func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute a template to display all of the uploaded media.
-	t, err := template.ParseFiles("templates/topic.tpl")
+	t, err := template.ParseFiles(filepath.Join(templatesDir, "topic.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t.Execute(w, ttd)
+	err = t.Execute(w, ttd)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 }

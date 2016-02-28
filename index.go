@@ -3,8 +3,9 @@ package main
 // index.go formats and serves the index page for the herus website.
 
 import (
-	"io"
+	"html/template"
 	"net/http"
+	"path/filepath"
 )
 
 const (
@@ -13,5 +14,14 @@ const (
 
 // indexHandler will handle any requests coming to the index page.
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "Index page of herus")
+	t, err := template.ParseFiles(filepath.Join(templatesDir, "index.tpl"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = t.Execute(w, nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 }

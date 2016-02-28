@@ -5,6 +5,7 @@ import (
 	"errors"
 	"html/template"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,7 +17,7 @@ const (
 )
 
 var (
-	errDuplicateRelation = errors.New("relation already exists!")
+	errDuplicateRelation = errors.New("relation already exists")
 	errMissingTopic      = errors.New("either the source or destination topic does not exist - cannot add connection")
 )
 
@@ -81,23 +82,31 @@ func (h *herus) receiveConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, err := template.ParseFiles("templates/connect.tpl")
+	t, err := template.ParseFiles(filepath.Join(templatesDir, "connect.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t.Execute(w, true)
+	err = t.Execute(w, true)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 }
 
 // serveConnectTopic presents the page that users can use to upload files to the
 // server.
 func (h *herus) serveConnectTopic(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFiles("templates/connect.tpl")
+	t, err := template.ParseFiles(filepath.Join(templatesDir, "connect.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t.Execute(w, false)
+	err = t.Execute(w, false)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 }
 
 // connectHandler handles requests to connect pages.

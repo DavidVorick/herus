@@ -23,11 +23,10 @@ const (
 
 // receiveUpload accepts an upload presented by the user.
 func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
-	// TODO: The number here indicates the maximum amount of memory that the
-	// server will use to parse the file. If the memory goes over, a temp file
-	// will be used. But, there should be some way to set a limit on the max
-	// size allowed, and I don't think that's happening here.
-	err := r.ParseMultipartForm(8 << 20) // 8 MB
+	// Setting MaxBytesReader limits the file upload to 8 MB, the connection
+	// will be closed if the limit is exceeded.
+	r.Body = http.MaxBytesReader(w, r.Body, 8<<20) // 8 MB
+	err := r.ParseMultipartForm(8 << 20)           // 8 MB
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -59,7 +58,12 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		err = file.Close()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+	}()
 	fileData, err := ioutil.ReadAll(file)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -67,11 +71,12 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the hash of the file.
-	//
-	// TODO: need to check the size of the file here, though ideally the size
-	// of the file would be managed mid-upload.
 	hasher := sha256.New()
-	hasher.Write(fileData)
+	_, err = hasher.Write(fileData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	checksum := hasher.Sum(nil)
 
 	// Create/Update the database entry for this media.
@@ -138,41 +143,40 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 			return bm.Put([]byte(parentMedia), parentMetadataBytes)
-		} else {
-			// Check whether the parent topic already has the media.
-			var td topicData
-			bt := tx.Bucket(bucketTopics)
-			tdBytes := bt.Get([]byte(parentTopic))
-			if tdBytes != nil {
-				err = json.Unmarshal(tdBytes, &td)
-				if err != nil {
-					return err
-				}
-			}
-			for _, am := range td.AssociatedMedia {
-				if am.Hash == mediaHash {
-					return errors.New("media has already been added to the parent topic")
-				}
-			}
-
-			// Media does not exist in the parent, add it to the parent.
-			td.AssociatedMedia = append(td.AssociatedMedia, mediaRelation{
-				Hash:           mediaHash,
-				SubmissionDate: time.Now(),
-				// Submitter:
-				Title: oldTitle,
-
-				Downvotes:  0,
-				LeftVotes:  0,
-				RightVotes: 0,
-				Upvotes:    3,
-			})
-			tdBytes, err = json.Marshal(td)
+		}
+		// Check whether the parent topic already has the media.
+		var td topicData
+		bt := tx.Bucket(bucketTopics)
+		tdBytes := bt.Get([]byte(parentTopic))
+		if tdBytes != nil {
+			err = json.Unmarshal(tdBytes, &td)
 			if err != nil {
 				return err
 			}
-			return bt.Put([]byte(parentTopic), tdBytes)
 		}
+		for _, am := range td.AssociatedMedia {
+			if am.Hash == mediaHash {
+				return errors.New("media has already been added to the parent topic")
+			}
+		}
+
+		// Media does not exist in the parent, add it to the parent.
+		td.AssociatedMedia = append(td.AssociatedMedia, mediaRelation{
+			Hash:           mediaHash,
+			SubmissionDate: time.Now(),
+			// Submitter:
+			Title: oldTitle,
+
+			Downvotes:  0,
+			LeftVotes:  0,
+			RightVotes: 0,
+			Upvotes:    3,
+		})
+		tdBytes, err = json.Marshal(td)
+		if err != nil {
+			return err
+		}
+		return bt.Put([]byte(parentTopic), tdBytes)
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -188,23 +192,31 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	t, err := template.ParseFiles("templates/upload.tpl")
+	t, err := template.ParseFiles(filepath.Join(templatesDir, "upload.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t.Execute(w, true)
+	err = t.Execute(w, true)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 }
 
 // serveUploadPage presents the page that users can use to upload files to the
 // server.
 func (h *herus) serveUploadPage(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFiles("templates/upload.tpl")
+	t, err := template.ParseFiles(filepath.Join(templatesDir, "upload.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t.Execute(w, false)
+	err = t.Execute(w, false)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 }
 
 // uploadHandler handles requests for the upload page.

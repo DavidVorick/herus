@@ -5,7 +5,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"io/ioutil"
 	"net/http"
@@ -81,13 +80,16 @@ func (h *herus) elaborationHandler(w http.ResponseWriter, r *http.Request) {
 
 		Elaborations: mm.Elaborations,
 	}
-	fmt.Println(mm)
-	t, err := template.ParseFiles("templates/elaborations.tpl")
+	t, err := template.ParseFiles(filepath.Join(templatesDir, "elaborations.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t.Execute(w, etd)
+	err = t.Execute(w, etd)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 }
 
 // mediaHandler handles requests for raw media.

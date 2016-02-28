@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	mediaDir = "media"
-	dbFile   = "herus.db"
+	dbFile       = "herus.db"
+	mediaDir     = "media"
+	templatesDir = "templates"
 )
 
 var (
@@ -73,5 +74,9 @@ func main() {
 	h.establishServerRoutes()
 
 	fmt.Println("Serving...")
-	http.ListenAndServe(":3841", nil)
+	err = http.ListenAndServe(":3841", nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }
