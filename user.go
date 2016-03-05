@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"time"
 
@@ -9,8 +8,8 @@ import (
 )
 
 const (
-	loginPage = "/login.go"
-	userPrefix= "/u/"
+	loginPage  = "/login.go"
+	userPrefix = "/u/"
 )
 
 // flags can be given to users if they are believed to be behaving in an
@@ -25,25 +24,17 @@ type User struct {
 	// Generic user information.
 	Email          string
 	HashedPassword []byte // blake2b(salt+username+password)
+	Name           string
 	Salt           string
-	Username       string
 
-	Flags          [15]flags
-	Posts          uint64
-	Votes          uint64
+	Flags [15]flags
+	Posts uint64
+	Votes uint64
 
 	// Membership information.
 	DateStarted string
 	DateEnded   string
 	MemberType  string
-}
-
-// Borrowed from boltdb readme itob returns an 8-byte big endian representation
-// of v.
-func itob(v int) []byte {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, uint64(v))
-	return b
 }
 
 // Add a user to the users bucket.
@@ -57,7 +48,7 @@ func (h *herus) initUser(user *User) error {
 			return err
 		}
 		// Stick bytes into users bucket.
-		return users.Put(itob(user.ID), encoded)
+		return users.Put([]byte(user.Name), encoded)
 	})
 }
 

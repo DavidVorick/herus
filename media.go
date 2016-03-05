@@ -80,7 +80,7 @@ func (h *herus) elaborationHandler(w http.ResponseWriter, r *http.Request) {
 
 		Elaborations: mm.Elaborations,
 	}
-	t, err := template.ParseFiles(filepath.Join(templatesDir, "elaborations.tpl"))
+	t, err := template.ParseFiles(filepath.Join(dirTemplates, "elaborations.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -95,7 +95,7 @@ func (h *herus) elaborationHandler(w http.ResponseWriter, r *http.Request) {
 // mediaHandler handles requests for raw media.
 func mediaHandler(w http.ResponseWriter, r *http.Request) {
 	mediaLocation := strings.TrimPrefix(r.URL.Path, mediaPrefix)
-	media, err := ioutil.ReadFile(filepath.Join(mediaDir, mediaLocation))
+	media, err := ioutil.ReadFile(filepath.Join(dirMedia, mediaLocation))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -105,5 +105,4 @@ func mediaHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	return
 }

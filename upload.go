@@ -185,14 +185,14 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 
 	// Write the media to the media folder.
 	if !mediaExists {
-		err = ioutil.WriteFile(filepath.Join(mediaDir, mediaHash), fileData, 0700)
+		err = ioutil.WriteFile(filepath.Join(dirMedia, mediaHash), fileData, 0700)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
 
-	t, err := template.ParseFiles(filepath.Join(templatesDir, "upload.tpl"))
+	t, err := template.ParseFiles(filepath.Join(dirTemplates, "upload.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -207,7 +207,7 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 // serveUploadPage presents the page that users can use to upload files to the
 // server.
 func (h *herus) serveUploadPage(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFiles(filepath.Join(templatesDir, "upload.tpl"))
+	t, err := template.ParseFiles(filepath.Join(dirTemplates, "upload.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

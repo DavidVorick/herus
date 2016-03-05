@@ -12,9 +12,11 @@ import (
 )
 
 const (
-	dbFile       = "herus.db"
-	mediaDir     = "media"
-	templatesDir = "templates"
+	dbFile = "herus.db"
+
+	dirCSS       = "css"
+	dirMedia     = "media"
+	dirTemplates = "templates"
 )
 
 var (
@@ -41,7 +43,7 @@ func (h *herus) initDB() (err error) {
 		buckets := [][]byte{
 			bucketTopics,
 			bucketMedia,
-			bucektUsers,
+			bucketUsers,
 		}
 		for _, bucket := range buckets {
 			_, err := tx.CreateBucketIfNotExists(bucket)
@@ -66,7 +68,7 @@ func main() {
 	}
 
 	// Create the media folder.
-	err = os.MkdirAll(mediaDir, 0700)
+	err = os.MkdirAll(dirMedia, 0700)
 	if err != nil {
 		fmt.Println(err)
 		return

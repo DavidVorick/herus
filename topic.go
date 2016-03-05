@@ -102,7 +102,7 @@ func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute a template to display all of the uploaded media.
-	t, err := template.ParseFiles(filepath.Join(templatesDir, "topic.tpl"))
+	t, err := template.ParseFiles(filepath.Join(dirTemplates, "topic.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

@@ -82,7 +82,7 @@ func (h *herus) receiveConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, err := template.ParseFiles(filepath.Join(templatesDir, "connect.tpl"))
+	t, err := template.ParseFiles(filepath.Join(dirTemplates, "connect.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -97,7 +97,7 @@ func (h *herus) receiveConnect(w http.ResponseWriter, r *http.Request) {
 // serveConnectTopic presents the page that users can use to upload files to the
 // server.
 func (h *herus) serveConnectTopic(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFiles(filepath.Join(templatesDir, "connect.tpl"))
+	t, err := template.ParseFiles(filepath.Join(dirTemplates, "connect.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
