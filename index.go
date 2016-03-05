@@ -1,6 +1,8 @@
 package main
 
-// index.go formats and serves the index page for the herus website.
+// index.go formats and serves the index page for the herus website. It also
+// contains all of the code that manages the headers and footers for the
+// website.
 
 import (
 	"html/template"
@@ -9,7 +11,7 @@ import (
 )
 
 const (
-	indexPrefix = "/index"
+	indexPrefix = "/index.go"
 )
 
 // indexHandler will handle any requests coming to the index page.

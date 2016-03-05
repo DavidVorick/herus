@@ -1,67 +1,73 @@
 package main
 
 import (
+	"encoding/binary"
 	"encoding/json"
-  "encoding/binary"
+	"time"
 
 	"github.com/boltdb/bolt"
 )
 
-type membership struct {
-  DateStarted   string
-  DateEnded     string
-  MemberType    string
-}
+const (
+	loginPage = "/login.go"
+	userPrefix= "/u/"
+)
 
-type payment struct {
-  Processing  bool
-  Processed   bool
-}
-
+// flags can be given to users if they are believed to be behaving in an
+// abusive way.
 type flags struct {
-	Date			string
-	FlaggerID	string
+	Time        time.Time
+	FlaggerName string
 }
 
+// User contains all of the information
 type User struct {
-  ID          		int
-  Username   			string
-  Password    		[]byte
-  Posts       		int
-  Email     		  string
-	Flags						[15]flags
-	Payment					payment
-	MembershipData	membership
+	// Generic user information.
+	Email          string
+	HashedPassword []byte // blake2b(salt+username+password)
+	Salt           string
+	Username       string
+
+	Flags          [15]flags
+	Posts          uint64
+	Votes          uint64
+
+	// Membership information.
+	DateStarted string
+	DateEnded   string
+	MemberType  string
 }
 
-// Borrowed from boltdb readme
-// itob returns an 8-byte big endian representation of v.
+// Borrowed from boltdb readme itob returns an 8-byte big endian representation
+// of v.
 func itob(v int) []byte {
-    b := make([]byte, 8)
-    binary.BigEndian.PutUint64(b, uint64(v))
-    return b
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(v))
+	return b
 }
-
-func (h *herus) userHandler(w http.Response)
 
 // Add a user to the users bucket.
 // In the style of CreateUser() from the boltdb readme.
 // Assumes username uniqueness already verified.
 func (h *herus) initUser(user *User) error {
 	return h.db.Update(func(tx *bolt.Tx) error {
-		users := tx.Bucket([]byte("Users"))
-
-		// Borrowed from boltdb readme
-		// Generate ID for the user.
-		// This returns an error only if the Tx is closed or not writeable.
-		// That can't happen in an Update() call so I ignore the error check.
-		// id, _ = users.NextSequence()
-		// user.ID = int(id)
+		users := tx.Bucket(bucketUsers)
 		encoded, err := json.Marshal(user)
 		if err != nil {
 			return err
 		}
-		// Stick bytes into users bucket
-		return users.Put(itob(user.ID),encoded)
+		// Stick bytes into users bucket.
+		return users.Put(itob(user.ID), encoded)
 	})
 }
+
+// Voting needs to be aware of what each user has voted for. Some archetecture
+// that tracks when a user has voted for something and remembers which way the
+// vote went. So, we can use a map. Page+item+user -> vote value. Which means
+// you can't easily pull a full list of things a user has voted on without
+// doing a bigger scan.
+
+// [prefix][user][prefix][page][prefix][item] -> vote value. That allows you to
+// scan the bucket to get a vote history. Upload history can be retrieved by
+// scanning everything as well. If it becomes necessary to pull up those stats
+// regularly, another thing can be added.

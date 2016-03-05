@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	uploadPrefix = "/upload"
+	uploadPage = "/upload.go"
 )
 
 // receiveUpload accepts an upload presented by the user.

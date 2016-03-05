@@ -66,8 +66,7 @@ type topicTemplateData struct {
 func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse and preprocess the topic name.
 	//
-	// TODO: It's not really great... there's probably a better way to format
-	// topicTitle.
+	// TODO: There is probably a better way to format the topic title.
 	topicTitle := strings.TrimPrefix(r.URL.Path, topicPrefix)
 	topicTitle = strings.Replace(topicTitle, "_", " ", -1)
 	topicTitle = strings.Title(topicTitle)

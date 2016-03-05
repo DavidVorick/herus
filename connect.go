@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	connectPrefix = "/connect"
+	connectPage = "/connect.go"
 )
 
 var (
