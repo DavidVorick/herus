@@ -19,6 +19,7 @@ const (
 var (
 	// bucketTopics houses information about all of the pages tracked by herus.
 	bucketTopics = []byte("Topics")
+	users = []byte("Users")
 )
 
 // herus contains all data that needs to persist in memory throughout the life
@@ -37,7 +38,9 @@ func (h *herus) initDB() (err error) {
 	return h.db.Update(func(tx *bolt.Tx) error {
 		buckets := [][]byte{
 			bucketTopics,
+			users,
 		}
+
 		for _, bucket := range buckets {
 			_, err := tx.CreateBucketIfNotExists(bucket)
 			if err != nil {
@@ -72,4 +75,12 @@ func main() {
 
 	fmt.Println("Serving...")
 	http.ListenAndServe(":3841", nil)
+
+	// Initialize a test user named Steve
+	Steve := User{
+		Username: "steve",
+		Email: 		"steve@me.com",
+	}
+	h.initUser(&Steve)
+	fmt.Println("Done")
 }
