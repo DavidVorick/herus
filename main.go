@@ -21,6 +21,7 @@ var (
 	// bucketTopics houses information about all of the pages tracked by herus.
 	bucketTopics = []byte("BucketTopics")
 	bucketMedia  = []byte("BucketMedia")
+	bucketUsers  = []byte("BucketUsers")
 )
 
 // herus contains all data that needs to persist in memory throughout the life
@@ -40,6 +41,7 @@ func (h *herus) initDB() (err error) {
 		buckets := [][]byte{
 			bucketTopics,
 			bucketMedia,
+			bucektUsers,
 		}
 		for _, bucket := range buckets {
 			_, err := tx.CreateBucketIfNotExists(bucket)
