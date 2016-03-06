@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"html/template"
 	"io"
@@ -22,82 +21,40 @@ const (
 var (
 	connectTpl = filepath.Join(dirTemplates, "connect.tpl")
 
-	errDuplicateRelation = errors.New("relation already exists")
-	errMissingTopic      = errors.New("either the source or destination topic does not exist - cannot add connection")
+	errDuplicateRelation       = errors.New("relation already exists")
+	errMissingSourceTopic      = errors.New("source topic does not exist - cannot add connection")
+	errMissingDestinationTopic = errors.New("destination topic does not exist - cannot add connection")
 )
 
-// receiveConnect handles a connection post request.
-func (h *herus) receiveConnect(w http.ResponseWriter, r *http.Request) {
-	err := r.ParseForm()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	sourceTopic := r.FormValue("sourceTopic")
-	sourceTopic = strings.Replace(sourceTopic, " ", "_", -1)
-	sourceTopic = strings.ToLower(sourceTopic)
-	destinationTopic := r.FormValue("destinationTopic")
-	destinationTopic = strings.Replace(destinationTopic, " ", "_", -1)
-	destinationTopic = strings.ToLower(destinationTopic)
+// ConnectTemplateData defines the data which is used to fill out the connect
+// template file.
+type ConnectTemplateData struct {
+	Error            string
+	ErrorExists      bool
+	PostWithoutError bool
+}
 
-	// Add the topic relation to the source topic db file, but only if the
-	// destination topic already exists.
-	err = h.db.Update(func(tx *bolt.Tx) error {
-		// First check that both the source and destination topics exist.
-		bt := tx.Bucket(bucketTopics)
-		sourceTopicDataBytes := bt.Get([]byte(sourceTopic))
-		destData := bt.Get([]byte(destinationTopic))
-		if sourceTopicDataBytes == nil || destData == nil {
-			return errMissingTopic
-		}
-
-		// Get the topic data.
-		var td topicData
-		err = json.Unmarshal(sourceTopicDataBytes, &td)
+// connectHandler handles requests to connect pages.
+func (h *herus) connectHandler(w http.ResponseWriter, r *http.Request) {
+	var ctd ConnectTemplateData
+	var err error
+	if r.Method == "POST" {
+		err = h.processConnectSubmission(r)
 		if err != nil {
-			return nil
+			ctd.ErrorExists = true
+			ctd.Error = err.Error()
+		} else {
+			ctd.PostWithoutError = true
 		}
-
-		// Check if the relation being created already exists.
-		for _, relation := range td.RelatedTopics {
-			if relation.Title == destinationTopic {
-				return errDuplicateRelation
-			}
-		}
-
-		// Add the relation.
-		td.RelatedTopics = append(td.RelatedTopics, topicRelation{
-			Title:          destinationTopic,
-			SubmissionDate: time.Now(),
-			// Submitter:
-
-			Downvotes:  0,
-			LeftVotes:  0,
-			RightVotes: 0,
-			Upvotes:    3,
-		})
-		sourceTopicDataBytes, err = json.Marshal(td)
-		if err != nil {
-			return err
-		}
-		return bt.Put([]byte(sourceTopic), sourceTopicDataBytes)
-	})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
 	}
 
+	// Regardless of the method type, serve the connect page.
 	err = executeHeader(w, HeaderTemplateData{Title: connectTitle})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t, err := template.ParseFiles(filepath.Join(dirTemplates, "connect.tpl"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	err = t.Execute(w, true)
+	err = executeConnectBody(w, ctd)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -110,42 +67,63 @@ func (h *herus) receiveConnect(w http.ResponseWriter, r *http.Request) {
 }
 
 // executeConnectBody builds the body portion of the connect page.
-func executeConnectBody(w io.Writer) error {
+func executeConnectBody(w io.Writer, ctd ConnectTemplateData) error {
 	t, err := template.ParseFiles(connectTpl)
 	if err != nil {
 		return err
 	}
-	return t.Execute(w, false)
+	return t.Execute(w, ctd)
 }
 
-// serveConnectBody presents the page that users can use to connect topics to
-// one-another.
-func (h *herus) serveConnectBody(w http.ResponseWriter, r *http.Request) {
-	err := executeHeader(w, HeaderTemplateData{Title: connectTitle})
+// processConnectSubmission processes a request to connect two topics.
+func (h *herus) processConnectSubmission(r *http.Request) error {
+	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return err
 	}
-	err = executeConnectBody(w)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	err = executeFooter(w)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-}
+	sourceTopic := r.FormValue("sourceTopic")
+	sourceTopic = strings.Replace(sourceTopic, " ", "_", -1)
+	sourceTopic = strings.ToLower(sourceTopic)
+	destinationTopic := r.FormValue("destinationTopic")
+	destinationTopic = strings.Replace(destinationTopic, " ", "_", -1)
+	destinationTopic = strings.ToLower(destinationTopic)
 
-// connectHandler handles requests to connect pages.
-func (h *herus) connectHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "" || r.Method == "GET" {
-		h.serveConnectBody(w, r)
-		return
-	}
-	if r.Method == "POST" {
-		h.receiveConnect(w, r)
-		return
-	}
+	// Add the topic relation to the source topic db file, but only if the
+	// destination topic already exists.
+	return h.db.Update(func(tx *bolt.Tx) error {
+		sourceTD, exists1, err := getTopicData(tx, sourceTopic)
+		if err != nil {
+			return err
+		}
+		_, exists2, err := getTopicData(tx, destinationTopic)
+		if err != nil {
+			return err
+		}
+		if !exists1 {
+			return errMissingSourceTopic
+		}
+		if !exists2 {
+			return errMissingDestinationTopic
+		}
+
+		// Check if the relation being created already exists.
+		for _, relation := range sourceTD.RelatedTopics {
+			if relation.Title == destinationTopic {
+				return errDuplicateRelation
+			}
+		}
+
+		// Add the relation.
+		sourceTD.RelatedTopics = append(sourceTD.RelatedTopics, topicRelation{
+			Title:          destinationTopic,
+			SubmissionDate: time.Now(),
+			// Submitter:
+
+			Downvotes:  0,
+			LeftVotes:  0,
+			RightVotes: 0,
+			Upvotes:    3,
+		})
+		return putTopicData(tx, sourceTopic, sourceTD)
+	})
 }

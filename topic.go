@@ -64,6 +64,33 @@ type topicTemplateData struct {
 	RelatedTopics   []topicRelation
 }
 
+// getTopicData returns the topic data associated with a topic in the bucket.
+func getTopicData(tx *bolt.Tx, topic string) (td topicData, exists bool, err error) {
+	// Get the topic data, checking whether the data exists.
+	bt := tx.Bucket(bucketTopics)
+	topicDataBytes := bt.Get([]byte(topic))
+	if topicDataBytes == nil {
+		return topicData{}, false, nil
+	}
+
+	// Unmarshal the topic data
+	err = json.Unmarshal(topicDataBytes, &td)
+	if err != nil {
+		return topicData{}, true, err
+	}
+	return td, true, nil
+}
+
+// putTopicData stores the provided topic data in the topic database.
+func putTopicData(tx *bolt.Tx, topic string, td topicData) error {
+	topicDataBytes, err := json.Marshal(td)
+	if err != nil {
+		return err
+	}
+	bt := tx.Bucket(bucketTopics)
+	return bt.Put([]byte(topic), topicDataBytes)
+}
+
 // topicHandler handles requests for topic pages.
 func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse and preprocess the topic name.
