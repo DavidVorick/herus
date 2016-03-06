@@ -64,8 +64,8 @@ type topicTemplateData struct {
 	RelatedTopics   []topicRelation
 }
 
-// getTopicData returns the topic data associated with a topic in the bucket.
-func getTopicData(tx *bolt.Tx, topic string) (td topicData, exists bool, err error) {
+// getTopic returns the topic data associated with a topic in the bucket.
+func getTopic(tx *bolt.Tx, topic string) (td topicData, exists bool, err error) {
 	// Get the topic data, checking whether the data exists.
 	bt := tx.Bucket(bucketTopics)
 	topicDataBytes := bt.Get([]byte(topic))
@@ -81,8 +81,8 @@ func getTopicData(tx *bolt.Tx, topic string) (td topicData, exists bool, err err
 	return td, true, nil
 }
 
-// putTopicData stores the provided topic data in the topic database.
-func putTopicData(tx *bolt.Tx, topic string, td topicData) error {
+// putTopic stores the provided topic data in the topic database.
+func putTopic(tx *bolt.Tx, topic string, td topicData) error {
 	topicDataBytes, err := json.Marshal(td)
 	if err != nil {
 		return err

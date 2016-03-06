@@ -26,9 +26,9 @@ var (
 	errMissingDestinationTopic = errors.New("destination topic does not exist - cannot add connection")
 )
 
-// ConnectTemplateData defines the data which is used to fill out the connect
+// connectTemplateData defines the data which is used to fill out the connect
 // template file.
-type ConnectTemplateData struct {
+type connectTemplateData struct {
 	Error            string
 	ErrorExists      bool
 	PostWithoutError bool
@@ -36,7 +36,7 @@ type ConnectTemplateData struct {
 
 // connectHandler handles requests to connect pages.
 func (h *herus) connectHandler(w http.ResponseWriter, r *http.Request) {
-	var ctd ConnectTemplateData
+	var ctd connectTemplateData
 	var err error
 	if r.Method == "POST" {
 		err = h.processConnectSubmission(r)
@@ -67,7 +67,7 @@ func (h *herus) connectHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // executeConnectBody builds the body portion of the connect page.
-func executeConnectBody(w io.Writer, ctd ConnectTemplateData) error {
+func executeConnectBody(w io.Writer, ctd connectTemplateData) error {
 	t, err := template.ParseFiles(connectTpl)
 	if err != nil {
 		return err
@@ -91,11 +91,11 @@ func (h *herus) processConnectSubmission(r *http.Request) error {
 	// Add the topic relation to the source topic db file, but only if the
 	// destination topic already exists.
 	return h.db.Update(func(tx *bolt.Tx) error {
-		sourceTD, exists1, err := getTopicData(tx, sourceTopic)
+		sourceTD, exists1, err := getTopic(tx, sourceTopic)
 		if err != nil {
 			return err
 		}
-		_, exists2, err := getTopicData(tx, destinationTopic)
+		_, exists2, err := getTopic(tx, destinationTopic)
 		if err != nil {
 			return err
 		}
@@ -124,6 +124,6 @@ func (h *herus) processConnectSubmission(r *http.Request) error {
 			RightVotes: 0,
 			Upvotes:    3,
 		})
-		return putTopicData(tx, sourceTopic, sourceTD)
+		return putTopic(tx, sourceTopic, sourceTD)
 	})
 }

@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/json"
 	"html/template"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,10 @@ import (
 const (
 	elaborationPrefix = "/e/"
 	mediaPrefix       = "/m/"
+)
+
+var (
+	elaborationTpl = filepath.Join(dirTemplates, "elaborations.tpl")
 )
 
 // mediaMetadata contains the metadata regarding a piece of media.
@@ -47,6 +52,33 @@ type mediaElaboration struct {
 	Upvotes   uint64
 }
 
+// executeMediaBody writes the html body for the media page.
+func executeMediaBody(w io.Writer, etd elaborationTemplateData) error {
+	t, err := template.ParseFiles(elaborationTpl)
+	if err != nil {
+		return err
+	}
+	return t.Execute(w, etd)
+}
+
+// getMediaMetadata pulls the elaborations on a piece of media from the
+// database.
+func getMediaMetadata(tx *bolt.Tx, mediaName string) (mm mediaMetadata, exists bool, err error) {
+	// Get the data from the bucket.
+	bm := tx.Bucket(bucketMedia)
+	mmBytes := bm.Get([]byte(mediaName))
+	if mmBytes == nil {
+		return mediaMetadata{}, false, nil
+	}
+
+	// Unmarshal the data.
+	err = json.Unmarshal(mmBytes, &mm)
+	if err != nil {
+		return mediaMetadata{}, true, err
+	}
+	return mm, true, nil
+}
+
 // elaborationHandler handles requests for the elaborations on media.
 func (h *herus) elaborationHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse the hash of the media for which the elaboration is being loaded.
@@ -55,14 +87,14 @@ func (h *herus) elaborationHandler(w http.ResponseWriter, r *http.Request) {
 	// Get a list of elaborations on the source media.
 	var mm mediaMetadata
 	err := h.db.View(func(tx *bolt.Tx) error {
-		// Get the elaboration data.
-		bm := tx.Bucket(bucketMedia)
-		mediaMetadataBytes := bm.Get([]byte(sourceHash))
-		if mediaMetadataBytes != nil {
-			err := json.Unmarshal(mediaMetadataBytes, &mm)
-			if err != nil {
-				return err
-			}
+		var exists bool
+		var err error
+		mm, exists, err = getMediaMetadata(tx, sourceHash)
+		if !exists {
+			return nil
+		}
+		if err != nil {
+			return err
 		}
 		return nil
 	})
@@ -85,13 +117,9 @@ func (h *herus) elaborationHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t, err := template.ParseFiles(filepath.Join(dirTemplates, "elaborations.tpl"))
+	err = executeMediaBody(w, etd)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	err = t.Execute(w, etd)
-	if err != nil {
+		println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
