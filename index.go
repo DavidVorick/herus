@@ -7,18 +7,14 @@ package main
 import (
 	"html/template"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"path/filepath"
-	"strings"
 )
 
 const (
 	indexPage = "/index.go"
 
 	indexTitle = "Herus - Learning Evolved"
-
-	cssPrefix = "/css/"
 )
 
 var (
@@ -38,21 +34,6 @@ type HeaderTemplateData struct {
 // template file.
 type IndexTemplateData struct {
 	// Empty right now.
-}
-
-// cssHandler feeds all of the css files to anyone requesting them.
-func cssHandler(w http.ResponseWriter, r *http.Request) {
-	cssFile := strings.TrimPrefix(r.URL.Path, cssPrefix)
-	css, err := ioutil.ReadFile(filepath.Join(dirCSS, cssFile))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	_, err = w.Write(css)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
 }
 
 // executeHeader builds the header portion of the page from the header

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
@@ -19,6 +20,12 @@ import (
 
 const (
 	uploadPage = "/upload.go"
+
+	uploadTitle = "Upload Media to Herus"
+)
+
+var (
+	uploadTpl = filepath.Join(dirTemplates, "upload.tpl")
 )
 
 // receiveUpload accepts an upload presented by the user.
@@ -192,6 +199,11 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	err = executeHeader(w, HeaderTemplateData{Title: uploadTitle})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	t, err := template.ParseFiles(filepath.Join(dirTemplates, "upload.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -202,17 +214,36 @@ func (h *herus) receiveUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	err = executeFooter(w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+}
+
+// executeUploadBody builds the body portion of the upload page.
+func executeUploadBody(w io.Writer) error {
+	t, err := template.ParseFiles(uploadTpl)
+	if err != nil {
+		return err
+	}
+	return t.Execute(w, nil)
 }
 
 // serveUploadPage presents the page that users can use to upload files to the
 // server.
 func (h *herus) serveUploadPage(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFiles(filepath.Join(dirTemplates, "upload.tpl"))
+	err := executeHeader(w, HeaderTemplateData{Title: uploadTitle})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	err = t.Execute(w, false)
+	err = executeUploadBody(w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = executeFooter(w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

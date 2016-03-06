@@ -6,7 +6,6 @@ package main
 import (
 	"encoding/json"
 	"html/template"
-	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -80,6 +79,12 @@ func (h *herus) elaborationHandler(w http.ResponseWriter, r *http.Request) {
 
 		Elaborations: mm.Elaborations,
 	}
+	err = executeHeader(w, HeaderTemplateData{Title: topicTitle})
+	if err != nil {
+		println(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	t, err := template.ParseFiles(filepath.Join(dirTemplates, "elaborations.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -90,18 +95,9 @@ func (h *herus) elaborationHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-}
-
-// mediaHandler handles requests for raw media.
-func mediaHandler(w http.ResponseWriter, r *http.Request) {
-	mediaLocation := strings.TrimPrefix(r.URL.Path, mediaPrefix)
-	media, err := ioutil.ReadFile(filepath.Join(dirMedia, mediaLocation))
+	err = executeFooter(w)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	_, err = w.Write(media)
-	if err != nil {
+		println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

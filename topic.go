@@ -15,6 +15,8 @@ import (
 
 const (
 	topicPrefix = "/t/"
+
+	topicTitle = "Knowledge"
 )
 
 // mediaRelation contains information about media that has been submitted to
@@ -56,7 +58,7 @@ type topicData struct {
 type topicTemplateData struct {
 	ElaborationPrefix string
 	TopicPrefix       string
-	TopicTitle        string
+	Title             string
 
 	AssociatedMedia []mediaRelation
 	RelatedTopics   []topicRelation
@@ -88,6 +90,7 @@ func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 		return nil
 	})
 	if err != nil {
+		println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -95,20 +98,34 @@ func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 	// Fill out the stuct that will inform the topic template.
 	ttd := topicTemplateData{
 		ElaborationPrefix: elaborationPrefix,
-		TopicTitle:        topicTitle,
+		Title:             topicTitle,
 
 		AssociatedMedia: td.AssociatedMedia,
 		RelatedTopics:   td.RelatedTopics,
 	}
 
 	// Execute a template to display all of the uploaded media.
+	err = executeHeader(w, HeaderTemplateData{Title: topicTitle})
+	if err != nil {
+		println(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	t, err := template.ParseFiles(filepath.Join(dirTemplates, "topic.tpl"))
 	if err != nil {
+		println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	err = t.Execute(w, ttd)
 	if err != nil {
+		println(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = executeFooter(w)
+	if err != nil {
+		println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

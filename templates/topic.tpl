@@ -1,17 +1,9 @@
-<html>
-<head>
-	<title>{{.TopicTitle}}</title>
-</head>
-
-<body>
-	<center><h1>{{.TopicTitle}}</h1></center>
+	<center><h1>{{.Title}}</h1></center>
 	{{range .AssociatedMedia}}
 		<a href='{{$.ElaborationPrefix}}{{.Hash}}'>{{.Title}}</a><br>
 	{{end}}
 	<br><br>
 	<center><h2>Related Pages</h2></center>
 	{{range .RelatedTopics}}
-		<a href='{{$.TopicPrefix}}{{.TopicTitle}}'>{{.TopicTitle}}</a><br>
+		<a href='{{$.TopicPrefix}}{{.Title}}'>{{.Title}}</a><br>
 	{{end}}
-</body>
-</html>

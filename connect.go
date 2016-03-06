@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -14,9 +15,13 @@ import (
 
 const (
 	connectPage = "/connect.go"
+
+	connectTitle = "Connect one topic to another"
 )
 
 var (
+	connectTpl = filepath.Join(dirTemplates, "connect.tpl")
+
 	errDuplicateRelation = errors.New("relation already exists")
 	errMissingTopic      = errors.New("either the source or destination topic does not exist - cannot add connection")
 )
@@ -82,6 +87,11 @@ func (h *herus) receiveConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = executeHeader(w, HeaderTemplateData{Title: connectTitle})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	t, err := template.ParseFiles(filepath.Join(dirTemplates, "connect.tpl"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -92,17 +102,36 @@ func (h *herus) receiveConnect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-}
-
-// serveConnectTopic presents the page that users can use to upload files to the
-// server.
-func (h *herus) serveConnectTopic(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFiles(filepath.Join(dirTemplates, "connect.tpl"))
+	err = executeFooter(w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	err = t.Execute(w, false)
+}
+
+// executeConnectBody builds the body portion of the connect page.
+func executeConnectBody(w io.Writer) error {
+	t, err := template.ParseFiles(connectTpl)
+	if err != nil {
+		return err
+	}
+	return t.Execute(w, false)
+}
+
+// serveConnectBody presents the page that users can use to connect topics to
+// one-another.
+func (h *herus) serveConnectBody(w http.ResponseWriter, r *http.Request) {
+	err := executeHeader(w, HeaderTemplateData{Title: connectTitle})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = executeConnectBody(w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	err = executeFooter(w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -112,7 +141,7 @@ func (h *herus) serveConnectTopic(w http.ResponseWriter, r *http.Request) {
 // connectHandler handles requests to connect pages.
 func (h *herus) connectHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "" || r.Method == "GET" {
-		h.serveConnectTopic(w, r)
+		h.serveConnectBody(w, r)
 		return
 	}
 	if r.Method == "POST" {

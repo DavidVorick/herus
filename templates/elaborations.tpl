@@ -1,14 +1,12 @@
-<html>
-<head>
-	<title>{{.Title}}</title>
-</head>
-
-<body>
-	<a href='{{.MediaPrefix}}{{.Hash}}'>{{.Hash}}</a><br>
+	<br><br><br>
+	<center><a href='{{.MediaPrefix}}{{.Hash}}'>{{.Hash}}</a><br></center>
 	<br>
-	<h2>Annotations and Elaborations</h2>
-	{{range .Elaborations}}
+	<center><h2>Annotations and Elaborations</h2></center>
+	<center>
+		{{range .Elaborations}}
 		<a href='{{$.ElaborationPrefix}}{{.Hash}}'>{{.Title}}</a><br>
-	{{end}}
-</body>
-</html>
+		{{end}}
+	</center>
+	<br><br><br>
+	<br><br><br>
+	<br><br><br>
