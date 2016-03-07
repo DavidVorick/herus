@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"html/template"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,10 @@ const (
 	topicPrefix = "/t/"
 
 	topicTitle = "Knowledge"
+)
+
+var (
+	topicTpl = filepath.Join(dirTemplates, "topic.tpl")
 )
 
 // mediaRelation contains information about media that has been submitted to
@@ -64,6 +69,15 @@ type topicTemplateData struct {
 	RelatedTopics   []topicRelation
 }
 
+// executeTopicBody writes the html body for the topic page.
+func executeTopicBody(w io.Writer, ttd topicTemplateData) error {
+	t, err := template.ParseFiles(topicTpl)
+	if err != nil {
+		return err
+	}
+	return t.Execute(w, ttd)
+}
+
 // getTopic returns the topic data associated with a topic in the bucket.
 func getTopic(tx *bolt.Tx, topic string) (td topicData, exists bool, err error) {
 	// Get the topic data, checking whether the data exists.
@@ -105,16 +119,14 @@ func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 	// Get a list of media from the database and build links to each media
 	// file.
 	var td topicData
-	err := h.db.View(func(tx *bolt.Tx) error {
-		bt := tx.Bucket(bucketTopics)
-		topicDataBytes := bt.Get([]byte(topicName))
-		if topicDataBytes != nil {
-			err := json.Unmarshal(topicDataBytes, &td)
-			if err != nil {
-				return err
-			}
+	var exists bool
+	var err error
+	err = h.db.View(func(tx *bolt.Tx) error {
+		td, exists, err = getTopic(tx, topicName)
+		if !exists {
+			return nil
 		}
-		return nil
+		return err
 	})
 	if err != nil {
 		println(err.Error())
@@ -138,13 +150,7 @@ func (h *herus) topicHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	t, err := template.ParseFiles(filepath.Join(dirTemplates, "topic.tpl"))
-	if err != nil {
-		println(err.Error())
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	err = t.Execute(w, ttd)
+	err = executeTopicBody(w, ttd)
 	if err != nil {
 		println(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)

@@ -93,10 +93,7 @@ func (h *herus) elaborationHandler(w http.ResponseWriter, r *http.Request) {
 		if !exists {
 			return nil
 		}
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
